@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { ArrowDown, ArrowUp, Box, ChevronDown, Compass, Crosshair, Expand, Layers3, MapPin, Minus, Pause, Play, Plus, RotateCcw, Settings2, Smartphone, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Box, ChevronDown, Compass, Crosshair, Expand, Layers3, MapPin, Minus, Pause, Play, Plus, RotateCcw, Settings2, Smartphone, X, Footprints, Plane } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CityScene } from './CityScene';
 import { viewpoints, type NavigationInput } from './world';
@@ -35,6 +35,7 @@ function MiniMap({ x, z }: { x: number; z: number }) {
 }
 export function CityExplorer() {
   const [preset, setPreset] = useState(0), [reset, setReset] = useState(0), [tour, setTour] = useState(false);
+  const [walk, setWalk] = useState(false);
   const [settings, setSettings] = useState(false), [quality, setQuality] = useState(true), [motion, setMotion] = useState(true);
   const [position, setPosition] = useState({ x:170, z:235, altitude:108 });
   const [ready, setReady] = useState(false), [fullscreen, setFullscreen] = useState(false);
@@ -74,20 +75,20 @@ export function CityExplorer() {
       <Button variant="outline" onClick={toggleFullscreen}><Expand /> Enter fullscreen</Button>
     </section>
     <div className="city-canvas"><Canvas camera={{position:[170,108,235], fov:48, near:1, far:1600}} dpr={quality ? [1,1.5] : 1} gl={{antialias:true, powerPreference:'high-performance'}} onCreated={() => setReady(true)} fallback={<div className="canvas-fallback">Your browser does not support 3D. Try a browser with WebGL enabled.</div>}>
-      <Suspense fallback={null}><CityScene input={input} preset={preset} reset={reset} tour={tour} motion={motion} quality={quality} onPosition={(x,z,altitude) => setPosition({x,z,altitude})} /></Suspense>
+      <Suspense fallback={null}><CityScene input={input} preset={preset} reset={reset} tour={tour} motion={motion} quality={quality} walk={walk} onPosition={(x,z,altitude) => setPosition({x,z,altitude})} /></Suspense>
     </Canvas></div>
     <div className="scene-shade" />
     <div className="city-hud">
       <header className="city-header">
         <div className="brand-group"><div className="brand-mark"><Box size={23} strokeWidth={1.25} /></div><div><div className="brand-name">FUTURE CITY <span>5.5</span></div><div className="brand-subtitle">WORLD EXPLORER</div></div></div>
         <div className="header-center"><span className="status-light" /> LIVE ENVIRONMENT <span className="header-separator">/</span> FREE ROAM</div>
-        <div className="header-actions"><Button variant="ghost" size="icon" aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'} title="Fullscreen" onClick={toggleFullscreen}><Expand /></Button><Button variant="ghost" size="icon" aria-label="Settings" title="Settings" onClick={() => setSettings(!settings)}><Settings2 /></Button><span className="version-label">WEB / 01</span></div>
+        <div className="header-actions"><Button variant="ghost" size="icon" aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'} title="Fullscreen" onClick={toggleFullscreen}><Expand /></Button><Button variant="ghost" size="icon" aria-label={walk ? "Fly view" : "Walk at street level"} title={walk ? "Fly view" : "Walk (first person)"} onClick={() => { setWalk(w => !w); setTour(false); setReset(r => r + 1); }}>{walk ? <Plane /> : <Footprints />}</Button><Button variant="ghost" size="icon" aria-label="Settings" title="Settings" onClick={() => setSettings(!settings)}><Settings2 /></Button><span className="version-label">WEB / 01</span></div>
       </header>
       <section className="location-heading"><div className="eyebrow"><span /> NEO METROPOLIS <span className="eyebrow-line" /></div><h1>Future<br />City.</h1><p>Sector 01 — The new horizon</p></section>
       <div className="landmark-label"><span className="landmark-cross" /><span className="landmark-rule" /><div><span className="micro-label">SECTOR {selectedView.sector}</span><span className="landmark-name">{selectedView.name}</span></div></div>
       <aside className="world-status"><div className="eyebrow">ENVIRONMENT</div><div className="environment-row"><span className="status-light" /> ONLINE <span>22:48</span></div><div className="status-divider" /><div className="coordinates"><span>X {position.x.toFixed(0).padStart(3,'0')}</span><span>Z {position.z.toFixed(0).padStart(3,'0')}</span></div><div className="altitude">ALTITUDE <span>{position.altitude.toFixed(0)}<small> m</small></span></div></aside>
       <div className="view-toolbar"><Button variant="ghost" size="icon" title="Zoom in" aria-label="Zoom in" onClick={() => {input.current.zoom=1;}}><Plus /></Button><Button variant="ghost" size="icon" title="Zoom out" aria-label="Zoom out" onClick={() => {input.current.zoom=-1;}}><Minus /></Button><span /><Button variant="ghost" size="icon" title="Reset view" aria-label="Reset view" onClick={() => setReset(r=>r+1)}><RotateCcw /></Button><Button variant="ghost" size="icon" title="Focus landmark" aria-label="Focus landmark" onClick={() => setReset(r=>r+1)}><Crosshair /></Button></div>
-      <div className="bottom-left"><div className="navigation-controls"><Joystick input={input} /><div className="lift-controls"><Button variant="ghost" size="icon" aria-label="Ascend" title="Ascend" {...liftProps(1)}><ArrowUp /></Button><Button variant="ghost" size="icon" aria-label="Descend" title="Descend" {...liftProps(-1)}><ArrowDown /></Button></div></div><div className="nav-caption"><Compass size={12} /> EXPLORATION MODE</div></div>
+      <div className="bottom-left"><div className="navigation-controls"><Joystick input={input} />{!walk && <div className="lift-controls"><Button variant="ghost" size="icon" aria-label="Ascend" title="Ascend" {...liftProps(1)}><ArrowUp /></Button><Button variant="ghost" size="icon" aria-label="Descend" title="Descend" {...liftProps(-1)}><ArrowDown /></Button></div>}</div><div className="nav-caption"><Compass size={12} /> {walk ? "STREET LEVEL · DRAG TO LOOK" : "EXPLORATION MODE"}</div></div>
       <nav className="landmark-nav" aria-label="Landmark views"><div className="nav-heading"><span className="micro-label">DISCOVER THE CITY</span><span className="micro-label">03 LANDMARKS</span></div><div className="landmark-buttons">{viewpoints.map((v,i)=><Button key={v.name} variant="ghost" className={`landmark-button ${preset===i ? 'is-active' : ''}`} onClick={()=>{setPreset(i); setReset(r=>r+1); setTour(false);}}><span className="landmark-number">0{i+1}</span><span>{v.name}</span>{preset===i && <span className="selected-dot" />}</Button>)}<Button variant="ghost" size="icon" className={`tour-button ${tour ? 'is-active' : ''}`} title={tour ? 'Pause tour' : 'Start city tour'} aria-label={tour ? 'Pause city tour' : 'Start city tour'} onClick={()=>setTour(!tour)}>{tour ? <Pause /> : <Play />}</Button></div></nav>
       <aside className="map-panel"><div className="map-heading"><MapPin size={12} /><span>CITY OVERVIEW</span><span>01</span></div><MiniMap x={position.x} z={position.z} /><div className="map-footer"><span className="status-light" /> {selectedView.name}<Layers3 size={12} /></div></aside>
       <footer className="city-footer"><span><span className="status-light" /> {ready ? 'CITY CONNECTED' : 'CONNECTING'}</span><span>FUTURE CITY PROJECT <span className="footer-dot">·</span> EXPLORATION BUILD 0.1</span><span>DESIGNED FOR TOMORROW <ChevronDown size={11} /></span></footer>

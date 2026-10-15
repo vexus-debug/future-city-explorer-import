@@ -17,7 +17,7 @@ export interface NavigationInput { x: number; y: number; lift: number; zoom: num
 export const CELL = 60, STREET = 14, GRID = 5, PLAZA = 88;
 const hash = (a: number, b: number) => { const r = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return r - Math.floor(r); };
 
-export function cityTexture(kind: 'windows' | 'ground' | 'pyramid') {
+export function cityTexture(kind: 'windows' | 'ground' | 'pyramid' | 'paving') {
   const canvas = document.createElement('canvas');
   canvas.width = 256; canvas.height = 512;
   const ctx = canvas.getContext('2d');
@@ -25,7 +25,6 @@ export function cityTexture(kind: 'windows' | 'ground' | 'pyramid') {
   if (kind === 'windows') {
     ctx.fillStyle = '#05080d'; ctx.fillRect(0, 0, 256, 512);
     for (let y = 4; y < 512; y += 10) for (let x = 3; x < 256; x += 8) {
-      // clusters: lit floors grouped by coarse noise
       const cluster = hash(Math.floor(x / 40), Math.floor(y / 30)), n = hash(x, y);
       let c = '#0d1520';
       if (cluster > 0.72 && n > 0.45) c = cluster > 0.9 ? '#ff3fb4' : cluster > 0.75 ? '#ffb35c' : '#5ff4ff';
@@ -35,13 +34,24 @@ export function cityTexture(kind: 'windows' | 'ground' | 'pyramid') {
     ctx.fillStyle = '#121a24';
     for (let x = 0; x < 256; x += 32) ctx.fillRect(x, 0, 2, 512);
   } else if (kind === 'ground') {
+    // asphalt: dark base with aggregate grain and faint tar patches
     canvas.height = 256;
-    ctx.fillStyle = palette.ground; ctx.fillRect(0, 0, 256, 256);
-    for (let i = 0; i < 2600; i++) {
-      const v = 10 + Math.floor(hash(i, 3) * 18);
-      ctx.fillStyle = `rgb(${v},${v + 4},${v + 10})`;
-      ctx.fillRect(hash(i, 1) * 256, hash(i, 2) * 256, 1.5, 1.5);
+    ctx.fillStyle = '#1a1d22'; ctx.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 14; i++) { ctx.fillStyle = `rgba(0,0,0,${0.15 + hash(i, 8) * 0.2})`; ctx.beginPath(); ctx.ellipse(hash(i, 5) * 256, hash(i, 6) * 256, 10 + hash(i, 7) * 30, 6 + hash(i, 9) * 18, hash(i, 4) * 3, 0, 7); ctx.fill(); }
+    for (let i = 0; i < 9000; i++) {
+      const v = 20 + Math.floor(hash(i, 3) * 45);
+      ctx.fillStyle = `rgb(${v},${v + 1},${v + 3})`;
+      ctx.fillRect(hash(i, 1) * 256, hash(i, 2) * 256, 1, 1);
     }
+  } else if (kind === 'paving') {
+    // sidewalk slabs with grout lines
+    canvas.height = 256;
+    ctx.fillStyle = '#3a3f46'; ctx.fillRect(0, 0, 256, 256);
+    for (let gy = 0; gy < 4; gy++) for (let gx = 0; gx < 4; gx++) {
+      const v = 52 + Math.floor(hash(gx, gy) * 14);
+      ctx.fillStyle = `rgb(${v},${v + 2},${v + 5})`; ctx.fillRect(gx * 64 + 2, gy * 64 + 2, 60, 60);
+    }
+    for (let i = 0; i < 4000; i++) { const v = 40 + Math.floor(hash(i, 11) * 40); ctx.fillStyle = `rgb(${v},${v},${v + 3})`; ctx.fillRect(hash(i, 12) * 256, hash(i, 13) * 256, 1, 1); }
   } else {
     ctx.fillStyle = palette.obsidian; ctx.fillRect(0, 0, 256, 512);
     ctx.fillStyle = '#141b24';
@@ -51,7 +61,9 @@ export function cityTexture(kind: 'windows' | 'ground' | 'pyramid') {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  if (kind === 'ground') texture.repeat.set(40, 40);
+  texture.anisotropy = 8;
+  if (kind === 'ground') texture.repeat.set(150, 150);
+  if (kind === 'paving') texture.repeat.set(6, 6);
   return texture;
 }
 

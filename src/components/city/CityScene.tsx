@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, type RefObject } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { Environment, Lightformer, OrbitControls } from '@react-three/drei';
+import { useFrame, useThree } from '@react-three/fiber';
+import { Environment, Lightformer, OrbitControls, Stars } from '@react-three/drei';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import type { OrbitControls as OrbitImpl } from 'three-stdlib';
 import * as THREE from 'three';
@@ -74,17 +74,18 @@ function Skyways({ motion }: { motion: boolean }) {
   </>;
 }
 function Ground() {
-  const texture = useMemo(() => cityTexture('ground'), []);
+  const asphalt = useMemo(() => cityTexture('ground'), []);
+  const paving = useMemo(() => cityTexture('paving'), []);
   const streets = useMemo(buildStreets, []);
-  useEffect(() => () => { texture.dispose(); streets.curbs?.dispose(); streets.marks?.dispose(); }, [texture, streets]);
+  useEffect(() => () => { asphalt.dispose(); paving.dispose(); streets.curbs?.dispose(); streets.marks?.dispose(); }, [asphalt, paving, streets]);
   return <>
-    <mesh rotation-x={-Math.PI / 2} position-y={-0.05}><planeGeometry args={[1500, 1500]} /><meshStandardMaterial map={texture} color="#8a96a8" roughness={0.25} metalness={0.75} /></mesh>
-    {streets.curbs && <mesh geometry={streets.curbs}><meshStandardMaterial color={palette.curb} roughness={0.8} metalness={0.2} /></mesh>}
-    {streets.marks && <mesh geometry={streets.marks}><meshBasicMaterial color="#6f7d8c" /></mesh>}
+    <mesh rotation-x={-Math.PI / 2} position-y={-0.05}><planeGeometry args={[1500, 1500]} /><meshStandardMaterial map={asphalt} color="#b8c0cc" roughness={0.55} metalness={0.25} /></mesh>
+    {streets.curbs && <mesh geometry={streets.curbs}><meshStandardMaterial map={paving} color="#c9d0d8" roughness={0.75} metalness={0.1} /></mesh>}
+    {streets.marks && <mesh geometry={streets.marks}><meshBasicMaterial color="#d8dde3" /></mesh>}
   </>;
 }
 export interface SceneProps {
-  input: RefObject<NavigationInput>; preset: number; reset: number; tour: boolean; motion: boolean; quality: boolean;
+  input: RefObject<NavigationInput>; preset: number; reset: number; tour: boolean; motion: boolean; quality: boolean; walk: boolean;
   onPosition: (x: number, z: number, altitude: number) => void;
 }
 function Navigation({ input, preset, reset, tour, motion, onPosition }: SceneProps) {
@@ -128,15 +129,54 @@ function Navigation({ input, preset, reset, tour, motion, onPosition }: ScenePro
   });
   return <OrbitControls ref={controls} makeDefault enableDamping dampingFactor={0.075} minDistance={22} maxDistance={500} maxPolarAngle={Math.PI / 2 - 0.035} minPolarAngle={0.2} rotateSpeed={0.45} panSpeed={0.65} onStart={() => { transitioning.current = false; }} touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }} />;
 }
+const EYE = 1.75;
+function WalkNavigation({ input, onPosition }: SceneProps) {
+  const { camera, gl } = useThree();
+  const yaw = useRef(0), pitch = useRef(0), keys = useRef(new Set<string>()), timer = useRef(0);
+  const fwd = useMemo(() => new THREE.Vector3(), []), right = useMemo(() => new THREE.Vector3(), []);
+  useEffect(() => {
+    // drop to street level near the plaza edge, facing the pyramid
+    camera.position.set(20, EYE, 110); yaw.current = Math.atan2(-20, -110) ; pitch.current = 0.15;
+    const el = gl.domElement; let drag: { id: number; x: number; y: number } | null = null;
+    const pd = (e: PointerEvent) => { drag = { id: e.pointerId, x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); };
+    const pm = (e: PointerEvent) => { if (!drag || drag.id !== e.pointerId) return;
+      yaw.current -= (e.clientX - drag.x) * 0.004; pitch.current = THREE.MathUtils.clamp(pitch.current - (e.clientY - drag.y) * 0.004, -1.4, 1.4);
+      drag.x = e.clientX; drag.y = e.clientY; };
+    const pu = () => { drag = null; };
+    const down = (e: KeyboardEvent) => { keys.current.add(e.code); if (e.code.startsWith('Arrow')) e.preventDefault(); };
+    const up = (e: KeyboardEvent) => keys.current.delete(e.code);
+    el.addEventListener('pointerdown', pd); el.addEventListener('pointermove', pm); el.addEventListener('pointerup', pu); el.addEventListener('pointercancel', pu);
+    window.addEventListener('keydown', down); window.addEventListener('keyup', up);
+    return () => { el.removeEventListener('pointerdown', pd); el.removeEventListener('pointermove', pm); el.removeEventListener('pointerup', pu); el.removeEventListener('pointercancel', pu);
+      window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
+  }, [camera, gl]);
+  useFrame((state, raw) => {
+    const dt = Math.min(raw, 0.05), k = keys.current, n = input.current;
+    const x = n.x + (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
+    const y = -n.y + (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
+    const speed = k.has('ShiftLeft') || k.has('ShiftRight') ? 22 : 9;
+    fwd.set(-Math.sin(yaw.current), 0, -Math.cos(yaw.current)); right.set(-fwd.z, 0, fwd.x);
+    const mv = fwd.multiplyScalar(y).addScaledVector(right, x); if (mv.lengthSq() > 1) mv.normalize();
+    camera.position.addScaledVector(mv, speed * dt);
+    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -340, 340); camera.position.z = THREE.MathUtils.clamp(camera.position.z, -340, 340);
+    const bob = mv.lengthSq() > 0 ? Math.sin(state.clock.elapsedTime * 9) * 0.05 : 0;
+    camera.position.y = EYE + bob;
+    camera.rotation.set(pitch.current, yaw.current, 0, 'YXZ');
+    timer.current += dt; if (timer.current > 0.5) { onPosition(camera.position.x, camera.position.z, camera.position.y); timer.current = 0; }
+  });
+  return null;
+}
 export function CityScene(props: SceneProps) {
   return <>
     <color attach="background" args={[palette.sky]} />
-    <fog attach="fog" args={[palette.fog, 180, 680]} />
+    <fog attach="fog" args={[palette.fog, props.walk ? 60 : 180, props.walk ? 520 : 680]} />
+    <Stars radius={700} depth={120} count={props.quality ? 6000 : 2500} factor={6} saturation={0.2} fade speed={props.motion ? 0.4 : 0} />
+    <mesh position={[-260, 420, -520]}><sphereGeometry args={[18, 32, 16]} /><meshBasicMaterial color="#dfe8ff" toneMapped={false} fog={false} /></mesh>
     <ambientLight intensity={0.08} color={palette.moon} />
     <hemisphereLight args={[palette.moon, palette.ground, 0.12]} />
     <directionalLight position={[-160, 220, 120]} intensity={1.3} color={palette.moon} />
     <Environment resolution={64}><Lightformer intensity={0.6} color={palette.moon} position={[0, 160, 0]} rotation-x={Math.PI / 2} scale={[400,400,1]} /><Lightformer color={palette.cyan} intensity={1.2} position={[-200,40,0]} rotation-y={Math.PI / 2} scale={[200,30,1]} /><Lightformer color={palette.magenta} intensity={0.8} position={[200,30,0]} rotation-y={-Math.PI / 2} scale={[200,20,1]} /></Environment>
-    <Ground /><Architecture /><Pyramid /><Skyways motion={props.motion} /><Navigation {...props} />
+    <Ground /><Architecture /><Pyramid /><Skyways motion={props.motion} />{props.walk ? <WalkNavigation {...props} /> : <Navigation key="orbit" {...props} />}
     {props.quality && <EffectComposer multisampling={0}><Bloom intensity={1.1} luminanceThreshold={0.6} luminanceSmoothing={0.35} mipmapBlur resolutionScale={0.5} /></EffectComposer>}
   </>;
 }
