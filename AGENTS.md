@@ -12,4 +12,5 @@
 ## City experience
 - Keep the 3D world on a client-only index route using React Three Fiber, with a DOM overlay for accessible controls; WebGL must not render during SSR.
 - Keep geometry and texture generation in the city world module, scene rendering in CityScene, and controls in CityExplorer; merged geometry and shared textures keep the mobile render budget small.
+- Strip development source-inspection attributes from the R3F scene module because Three.js objects cannot accept DOM data attributes.
 - Use procedural original sci-fi architecture rather than redistributing the referenced Minecraft map; the original map assets have not been supplied.
