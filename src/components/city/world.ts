@@ -63,7 +63,7 @@ export function cityTexture(kind: 'windows' | 'ground' | 'pyramid' | 'paving') {
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.anisotropy = 8;
   if (kind === 'ground') texture.repeat.set(150, 150);
-  if (kind === 'paving') texture.repeat.set(0.25, 0.25);
+  if (kind === 'paving') texture.repeat.set(6, 6);
   return texture;
 }
 
