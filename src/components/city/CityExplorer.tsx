@@ -74,7 +74,7 @@ export function CityExplorer() {
       <p>Rotate your phone horizontally.</p>
       <Button variant="outline" onClick={toggleFullscreen}><Expand /> Enter fullscreen</Button>
     </section>
-    <div className="city-canvas"><Canvas camera={{position:[170,108,235], fov:48, near:1, far:1600}} dpr={quality ? [1,1.5] : 1} gl={{antialias:true, powerPreference:'high-performance'}} onCreated={() => setReady(true)} fallback={<div className="canvas-fallback">Your browser does not support 3D. Try a browser with WebGL enabled.</div>}>
+    <div className="city-canvas"><Canvas camera={{position:[170,108,235], fov:48, near:1, far:2400}} dpr={quality ? [1,1.5] : 1} gl={{antialias:true, powerPreference:'high-performance'}} onCreated={() => setReady(true)} fallback={<div className="canvas-fallback">Your browser does not support 3D. Try a browser with WebGL enabled.</div>}>
       <Suspense fallback={null}><CityScene input={input} preset={preset} reset={reset} tour={tour} motion={motion} quality={quality} walk={walk} onPosition={(x,z,altitude) => setPosition({x,z,altitude})} /></Suspense>
     </Canvas></div>
     <div className="scene-shade" />

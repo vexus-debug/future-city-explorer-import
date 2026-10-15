@@ -108,30 +108,46 @@ export function buildArchitecture() {
   forBlocks((cx, cz, gx, gz) => {
     if (cz > 40 && Math.abs(cx) < 160) return; // keep skyway sightline open
     const dist = Math.hypot(cx, cz) / (GRID * CELL);
+    const heights: number[] = [];
     for (let i = 0; i < 4; i++) {
       const r = (n: number) => hash(gx * 13 + i * 3.1 + n, gz * 7 + n * 1.7);
+      heights[i] = 0;
       if (r(9) < 0.12) continue; // occasional empty lot
       const x = cx + (i % 2 ? 1 : -1) * lot / 2, z = cz + (i < 2 ? -1 : 1) * lot / 2;
       const w = lot - 3 - r(1) * 3, d = lot - 3 - r(2) * 3;
       const core = Math.max(0, 1 - dist * 1.3);
-      const h = 14 + core * 110 * (0.5 + r(3)) + r(4) * 18;
+      // LineField-scale megatowers: core towers reach 250-380 units
+      const h = 22 + core * 300 * (0.5 + r(3)) + r(4) * 30;
+      heights[i] = h;
       // podium
       box(shells, x, 3, z, w, 6, d);
       box(neon, x, 6.3, z + d / 2 + 0.05, w * 0.9, 0.4, 0.1);
       // body with setbacks
-      const tiers = h > 70 ? 3 : h > 35 ? 2 : 1;
-      let y = 6, tw = w * 0.9, td = d * 0.9;
+      const tiers = h > 200 ? 5 : h > 110 ? 4 : h > 60 ? 3 : h > 35 ? 2 : 1;
+      let y = 6, tw = w * 0.92, td = d * 0.92;
       for (let t = 0; t < tiers; t++) {
         const th = (h - 6) / tiers;
         box(shells, x, y + th / 2, z, tw, th, td);
         box(crowns, x, y + th + 0.4, z, tw + 0.6, 0.8, td + 0.6);
+        if (h > 110) box(neon, x, y + th + 0.95, z + td / 2 + 0.35, tw * 0.8, 0.3, 0.1);
         if (t === tiers - 1 && r(5) > 0.5) box(lights, x + tw / 2 + 0.1, y + th / 2, z + td / 2 + 0.1, 0.3, th, 0.3);
-        y += th; tw *= 0.78; td *= 0.78;
+        y += th; tw *= 0.86; td *= 0.86;
       }
       // rooftop bulkheads + masts
       box(crowns, x - tw * 0.2, y + 2, z, tw * 0.4, 4, td * 0.5);
       box(crowns, x + tw * 0.25, y + 1.2, z + td * 0.2, tw * 0.3, 2.4, td * 0.3);
-      if (h > 60) { box(crowns, x, y + 10, z, 0.4, 16, 0.4); box(neon, x, y + 18.4, z, 0.9, 0.9, 0.9); }
+      if (h > 60) { const m = h > 200 ? 40 : 16; box(crowns, x, y + m / 2 + 2, z, 0.5, m, 0.5); box(neon, x, y + m + 2.4, z, 1.1, 1.1, 1.1); }
+    }
+    // skybridges between neighbouring towers inside the block (never across avenues)
+    const pairs: [number, number, 'x' | 'z'][] = [[0, 1, 'x'], [2, 3, 'x'], [0, 2, 'z']];
+    for (const [a, b, axis] of pairs) {
+      const low = Math.min(heights[a] ?? 0, heights[b] ?? 0);
+      if (low < 90) continue;
+      for (const f of [0.35, 0.62]) {
+        const y = low * f, row = axis === 'x' ? cz + (a < 2 ? -1 : 1) * lot / 2 : cx - lot / 2;
+        if (axis === 'x') { box(crowns, cx, y, row, lot, 3, 5); box(lights, cx, y + 1.6, row, lot, 0.2, 5.2); }
+        else { box(crowns, row, y, cz, 5, 3, lot); box(lights, row, y + 1.6, cz, 5.2, 0.2, lot); }
+      }
     }
   });
   return { shells: merge(shells), crowns: merge(crowns), lights: merge(lights), neon: merge(neon) };
