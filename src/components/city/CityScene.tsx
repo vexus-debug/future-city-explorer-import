@@ -32,10 +32,14 @@ function Pyramid() {
     <pointLight position={[0, geo.apex + 6, 0]} color={palette.cyan} intensity={4000} distance={220} />
   </group>;
 }
-const roadPoints = [
-  [[-330,19,110],[-150,22,92],[-20,24,125],[110,30,110],[180,34,5],[170,29,-120],[290,24,-230]],
-  [[-340,37,-180],[-160,38,-125],[-75,33,-65],[-94,28,32],[-180,22,125],[-180,18,280]],
-  [[-260,13,230],[-70,15,202],[90,17,185],[270,20,210]],
+// Highways follow avenue centre-lines (x or z = n*60+30) so they never cut through buildings.
+// Corners get extra points so the spline turns tightly inside the intersection.
+const corner = (x: number, y: number, z: number, from: 'x' | 'z', dx: number, dz: number) =>
+  from === 'x' ? [[x - dx * 8, y, z], [x, y, z], [x, y, z + dz * 8]] : [[x, y, z - dz * 8], [x, y, z], [x + dx * 8, y, z]];
+const roadPoints: number[][][] = [
+  [[-340,16,150],[-210,16,150],[-90,16,150],[30,16,150],[150,16,150],[270,16,150],[340,16,150]],
+  [[-90,44,-340],[-90,44,-210],[-90,44,-90],[-90,44,30],[-90,44,150],[-90,44,270],[-90,44,340]],
+  [[340,30,-90],[270,30,-90],[210,30,-90],...corner(150,30,-90,'x',-1,1),[150,30,30],[150,30,150],[150,30,270],[150,30,340]],
 ];
 const CARS = 48;
 function Skyways({ motion }: { motion: boolean }) {
